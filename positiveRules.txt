@@ -3,20 +3,20 @@
 # http://regexr.com and https://regex101.com help a lot in crating and understanding the rules
 # Rules can be named by "Name" and then two semicolons. For example BR;; names the Basic Rule
 # Rules can be referenced by their name. To insert a rule in another rule use ;@"Name of rule"@;
+#Percentage Ranges
+PR;;((([^\s]*(?:\/(?:IN|RB|POS)))\s)?(([^\s]*\/CD\s)%\/NN\s)to\/TO\s(([^\s]*\/CD\s)%\/NN\s))
 #Enumerations of Nouns or Numbers
 ENR;;((('s|')(?:\/POS)\s)?([^\s]*(?:\/DT)\s)?[^\s]*\/(?:NNP|NN|CD)\s,\/,\s[^\s]*\/(?:NNP|NN|CD)\s[^\s]*\/CC\s[^\s]*\/(?:NNP|NN|CD))
 #Dates
 DATS;;([^\s]*\/NNP\s[^\s]*\/CD\s,\/,\s[^\s]*\/CD)
 #Nouns which are connected by an "and": SAR + CC + SAR
 ACNR;;((;@PRP@;|;@DT@;|;@AR@;)([^\s]*(?:\/CC)\s);@SAR@;)
-#Percentage Ranges
-PR;;((([^\s]*(?:\/(?:IN|RB|POS)))\s)?(([^\s]*\/CD\s)%\/NN\s)to\/TO\s(([^\s]*\/CD\s)%\/NN\s))
 #Monetary Ranges
 MR;;((only\/RB\s)?;@MV@;to\/TO\s;@MV@;)
 #Gets monetary values
-MV;;((([^\s]*(?:\/DT))\s([^\s]*(?:\/(?:JJ|JJS|JJR))\s)?|about\/IN\s|about\/RB\s|just\/RB\s|nearly\/RB\s|over\/IN\s|more\/JJR\sthan\/IN\s|less\/JJR\sthan\/IN\s|up\/IN\sto\/TO\s|up\/RB\sto\/TO\s)?([^\s]+(?:\/(?:\$|#|€))\s)([^\s]*(?:\/(?:JJ|JJS|JJR))\s)?;@CD@;*(bonus\/NN|budget\/NN)?)
+MV;;((([^\s]*(?:\/DT))\s([^\s]*(?:\/(?:JJ|JJS|JJR))\s)?|about\/IN\s|about\/RB\s|just\/RB\s|nearly\/RB\s|over\/IN\s|more\/JJR\sthan\/IN\s|less\/JJR\sthan\/IN\s|up\/IN\sto\/TO\s|up\/RB\sto\/TO\s)?([^\s]+(?:\/(?:\$|#|€))\s)([^\s]*(?:\/(?:JJ|JJS|JJR))\s)?;@CD@;*([^\s]*\/NN\s){0,2})
 #gets ranges of numbers
-#RR;;((;@MV@;|(;@CD@;[^\s]+\/NN\s))to/TO\s(;@MV@;|(;@CD@;[^\s]+\/NN\s)))
+#RR;;((;@MV@;|(;@CD@;[^\s]+\/NN\s))to\/TO\s(;@MV@;|(;@CD@;[^\s]+\/NN\s)))
 #Some noun phrases have a VBG in them
 VBGR;;(((([^\s]*(?:\/DT))\s)|([^\s]*(?:\/CD))\s)([^\s]+\/VBG)\s;@CDAR@;)
 #determiner (a, the, this...) before adjective rule. May include verb participle
@@ -36,7 +36,7 @@ CDAR;;(;@CD@;?;@AR@;)
 #adverb rule. One Adverb might be in front of adjective rule
 RBR;;(([^\s]*(?:\/DT)\s)?([^\s]*(?:\/RB|RBR|RBS)\s);@CDAR@;)
 #adjective before basic rule  (JJ|JJS|JJR)* + BR
-AR;;(([^\s]*(?<!due)(?:\/(?:JJ|JJS|JJR)\s,/,\s))?([^\s]*(?<!due)(?:\/(?:JJ|JJS|JJR))\s)*;@BR@;)
+AR;;(([^\s]*(?<!due)(?:\/(?:JJ|JJS|JJR)\s,\/,\s))?([^\s]*(?<!due)(?:\/(?:JJ|JJS|JJR))\s)*;@BR@;)
 #zero or 1 adjective before basic rule  (JJ|JJS|JJR)? + BR
 SAR;;(([^\s]*(?<!due)(?:\/(?:JJ|JJS|JJR))\s)?;@BR@;)
 #Basic Rule
