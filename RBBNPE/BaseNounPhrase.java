@@ -30,6 +30,8 @@ public class BaseNounPhrase {
     private int startOffset;
     private int endOffset;
 
+    private String head;
+
 
     /**
      *
@@ -53,57 +55,69 @@ public class BaseNounPhrase {
      * @return String The extracted head
      */
     public String getHead() {
-        ArrayList<String> tokens = new ArrayList<String>();
-        ArrayList<String> POSTags = new ArrayList<String>();
+        if (head == null) {
+            ArrayList<String> tokens = new ArrayList<String>();
+            ArrayList<String> POSTags = new ArrayList<String>();
 
-        String wordsWIthTagsInBaseNP[] = phraseStringWithPOSTags.split(" ");
+            String wordsWIthTagsInBaseNP[] = phraseStringWithPOSTags.split(" ");
 
-        for (String word : wordsWIthTagsInBaseNP) {
+            for (String word : wordsWIthTagsInBaseNP) {
 
-            String token = word.replaceAll("(?<!/)/[A-Z,$,#,€]{1,4}", "").trim();
-            String POSTag = word.replace(token, "").trim();
-            POSTag = POSTag.replace("/", "");
+                String token = word.replaceAll("(?<!/)/[A-Z,$,#,€]{1,4}", "").trim();
+                String POSTag = word.replace(token, "").trim();
+                POSTag = POSTag.replace("/", "");
 
-            tokens.add(token);
-            POSTags.add(POSTag);
-        }
-
-        if (POSTags.get(tokens.size()-1).equals("POS")) {
-            return tokens.get(tokens.size()-1);
-        }
-        for (int i = tokens.size()-1; i >= 0; i--) {
-            String POSTag = POSTags.get(i);
-            if (POSTag.equals("NN") || POSTag.equals("NNP") || POSTag.equals("NNPS") || POSTag.equals("NNS") || POSTag.equals("NX") || POSTag.equals("POS") || POSTag.equals("JJR")) {
-                return tokens.get(i);
+                tokens.add(token);
+                POSTags.add(POSTag);
             }
-        }
-        for (int j = 0; j < tokens.size(); j++) {
-            String POSTag = POSTags.get(j);
-            if (POSTag.equals("NP")) {
-                return tokens.get(j);
-            } else {
 
+            if (POSTags.get(tokens.size() - 1).equals("POS")) {
+                head = tokens.get(tokens.size() - 1);
+                return head;
             }
-        }
-        for (int i = tokens.size()-1; i >= 0; i--) {
-            String POSTag = POSTags.get(i);
-            if (POSTag.equals("$") || POSTag.equals("ADJP") || POSTag.equals("PRN")) {
-                return tokens.get(i);
+            for (int i = tokens.size() - 1; i >= 0; i--) {
+                String POSTag = POSTags.get(i);
+                if (POSTag.equals("NN") || POSTag.equals("NNP") || POSTag.equals("NNPS") || POSTag.equals("NNS") || POSTag.equals("NX") || POSTag.equals("POS") || POSTag.equals("JJR")) {
+                    head = tokens.get(i);
+                    return head;
+                }
             }
-        }
-        for (int i = tokens.size()-1; i >= 0; i--) {
-            String POSTag = POSTags.get(i);
-            if (POSTag.equals("CD")) {
-                return tokens.get(i);
+            for (int j = 0; j < tokens.size(); j++) {
+                String POSTag = POSTags.get(j);
+                if (POSTag.equals("NP")) {
+                    head = tokens.get(j);
+                    return head;
+                } else {
+
+                }
             }
-        }
-        for (int i = tokens.size()-1; i >= 0; i--) {
-            String POSTag = POSTags.get(i);
-            if (POSTag.equals("JJ") || POSTag.equals("JJS") || POSTag.equals("RB") || POSTag.equals("QP")) {
-                return tokens.get(i);
+            for (int i = tokens.size() - 1; i >= 0; i--) {
+                String POSTag = POSTags.get(i);
+                if (POSTag.equals("$") || POSTag.equals("ADJP") || POSTag.equals("PRN")) {
+                    head = tokens.get(i);
+                    return head;
+                }
             }
+            for (int i = tokens.size() - 1; i >= 0; i--) {
+                String POSTag = POSTags.get(i);
+                if (POSTag.equals("CD")) {
+                    head = tokens.get(i);
+                    return head;
+                }
+            }
+            for (int i = tokens.size() - 1; i >= 0; i--) {
+                String POSTag = POSTags.get(i);
+                if (POSTag.equals("JJ") || POSTag.equals("JJS") || POSTag.equals("RB") || POSTag.equals("QP")) {
+                    head = tokens.get(i);
+                    return head;
+                }
+            }
+            head = tokens.get(tokens.size() - 1);
+            return head;
         }
-        return tokens.get(tokens.size()-1);
+        else {
+            return head;
+        }
     }
 
     /**

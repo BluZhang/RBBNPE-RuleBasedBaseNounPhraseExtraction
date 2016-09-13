@@ -9,10 +9,10 @@ PR;;((([^\s]*(?:\/(?:IN|RB|POS)))\s)?(([^\s]*\/CD\s)%\/NN\s)to\/TO\s(([^\s]*\/CD
 ENR;;((('s|')(?:\/POS)\s)?([^\s]*(?:\/DT)\s)?[^\s]*\/(?:NNP|NN|CD)\s,\/,\s[^\s]*\/(?:NNP|NN|CD)\s[^\s]*\/CC\s[^\s]*\/(?:NNP|NN|CD))
 #Dates
 DATS;;([^\s]*\/NNP\s[^\s]*\/CD\s,\/,\s[^\s]*\/CD)
-#Nouns which are connected by an "and": SAR + CC + SAR
-ACNR;;((;@PRP@;|;@DT@;|;@AR@;)([^\s]*(?:\/CC)\s);@SAR@;)
 #Monetary Ranges
 MR;;((only\/RB\s)?;@MV@;to\/TO\s;@MV@;)
+#Nouns which are connected by an "and": SAR + CC + SAR
+ACNR;;((;@PRP@;|;@DT@;|;@AR@;)([^\s]*(?:\/CC)\s);@SAR@;)
 #Gets monetary values
 MV;;((([^\s]*(?:\/DT))\s([^\s]*(?:\/(?:JJ|JJS|JJR))\s)?|about\/IN\s|about\/RB\s|just\/RB\s|nearly\/RB\s|over\/IN\s|more\/JJR\sthan\/IN\s|less\/JJR\sthan\/IN\s|up\/IN\sto\/TO\s|up\/RB\sto\/TO\s)?([^\s]+(?:\/(?:\$|#|€))\s)([^\s]*(?:\/(?:JJ|JJS|JJR))\s)?;@CD@;*([^\s]*\/NN\s){0,2})
 #gets ranges of numbers
@@ -21,8 +21,8 @@ MV;;((([^\s]*(?:\/DT))\s([^\s]*(?:\/(?:JJ|JJS|JJR))\s)?|about\/IN\s|about\/RB\s|
 VBGR;;(((([^\s]*(?:\/DT))\s)|([^\s]*(?:\/CD))\s)([^\s]+\/VBG)\s;@CDAR@;)
 #determiner (a, the, this...) before adjective rule. May include verb participle
 DT;;([^\s]*(?:\/DT)\s([^\s]*(?:\/VBN)\s)?;@CDAR@;)
-#Adjectives combined by an "and" infromt of basic rule
-ACAR;;([^\s]*(?:\/DT)\s([^\s]*(?:\/JJ)\s)([^\s]*(?:\/CC)\s)([^\s]*(?:\/JJ)\s);@SAR@;)
+#Adjectives combined by an "and" in front of basic rule
+ACAR;;([^\s]*(?:(?:DT|POS))\s([^\s]*(?:\/JJ)\s)([^\s]*(?:\/CC)\s)([^\s]*(?:\/JJ)\s);@SAR@;)
 #POS tag before basic rule: POS +  optional ver participle + adjective rule
 POS;;(('s|')(?:\/POS)\s([^\s]*(?:\/VBN)\s)?;@CD@;?;@CDAR@;)
 #Personal Pronoun in front of  adjectives rule
@@ -44,7 +44,7 @@ BR;;(;@CD@;*([^\s]*(?:\/(?:NNS|NNPS|NNP|NN))\s)+;@CD@;*)
 #Gets Wh-pronouns. One token is us usually the whole baseNP
 WH;;([^\s]*)(?:\/WP)
 #Gets Cardinal Digits. This includes possible augmentations
-CD;;(((([a|A]bout\/IN|more\/JJR\sthan\/IN|less\/JJR\sthan\/IN|up\/IN\sto\/TO|up\/RB\sto\/TO)\s)?([^\s]+\/CD\s))+)
+CD;;(((([a|A]bout\/IN|more\/JJR\sthan\/IN|less\/JJR\sthan\/IN|up\/IN\sto\/TO|up\/RB\sto\/TO|another\/DT)\s)?([^\s]+\/CD\s))+)
 #"That" with the POS Tag WDT is considered a NP
 WDT;;((that|which)\/WDT)
 #"There" with the POS Tag EX is considered a NP

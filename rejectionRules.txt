@@ -23,3 +23,5 @@ named/VBN ;@phrase@;of/IN
 Mr.\/NNP [^\s]*(?:\/NNP) and\/CC ;@phraseparttwo@;
 ∞ Mr./NNP ∞;keepright;
 (?<!('s/POS|old/JJ)\s)Mr./NNP
+∞ yesterday/NN∞;keepright;
+;@phrase@;

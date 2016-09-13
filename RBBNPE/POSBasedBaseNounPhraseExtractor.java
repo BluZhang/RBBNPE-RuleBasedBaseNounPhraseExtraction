@@ -20,10 +20,10 @@ import edu.stanford.nlp.ling.Word;
 import edu.stanford.nlp.tagger.maxent.MaxentTagger;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,26 +40,30 @@ public class POSBasedBaseNounPhraseExtractor {
         private String key;
         private String operation;
         ArrayList<String> rules;
+
         public RejectionRule(String key, String operation) {
             this.key = key;
             this.operation = operation;
             this.rules = new ArrayList<String>();
         }
+
         public void addRule(String newRule) {
             rules.add(newRule);
         }
+
         public ArrayList<String> getRules() {
             return rules;
         }
+
         public String getKey() {
             return key;
         }
+
         public String getOperation() {
             return operation;
         }
     }
 
-    private int lastStartOffset = -1;
 
     private MaxentTagger POSTagger;
     List<List<TaggedWord>> taggedSentences;
@@ -108,44 +112,64 @@ public class POSBasedBaseNounPhraseExtractor {
             String rulesFilePath = "positiveRules.txt";
             String rulesRegEx = getRegExString(rulesFilePath);
 
-            Pattern baseNPPositiveRulesPattern = Pattern.compile(rulesRegEx);
-            Matcher baseNPMatcher = baseNPPositiveRulesPattern.matcher("");
 
-            Pattern POSTagPattern = Pattern.compile("(?<!(?:/|\\)))/([A-Z,$,#,€]{1,4})");
-            Matcher POSTagMatcher = POSTagPattern.matcher("");
-
+            ExecutorService es = Executors.newCachedThreadPool();
             for (List<TaggedWord> taggedSentence : taggedSentences) {
 
-                String sentence = Sentence.listToString(taggedSentence, false);
-                baseNPMatcher.reset(sentence);
 
-                while(baseNPMatcher.find()) {
+                Thread thread = new Thread() {
+                    public void run() {
 
-                    String baseNPString = baseNPMatcher.group(0);
 
-                    String POSTag = "";
-                    POSTagMatcher.reset(baseNPString); //So Matcher does not have to be reinitialized every time
+                        TaggedWord firstWord = taggedSentence.get(0);
+                        int startOfTaggedSentence = firstWord.beginPosition() - 1;
 
-                    while (POSTagMatcher.find()) {
-                        POSTag = POSTagMatcher.group(1);  //POS Tag of last token
+                        int initialStartOffset = startOfTaggedSentence;
+
+                        Pattern baseNPPositiveRulesPattern = Pattern.compile(rulesRegEx);
+                        Matcher baseNPMatcher = baseNPPositiveRulesPattern.matcher("");
+
+                        Pattern POSTagPattern = Pattern.compile("(?<!(?:/|\\)))/([A-Z,$,#,€]{1,4})");
+                        Matcher POSTagMatcher = POSTagPattern.matcher("");
+
+                        String sentence = Sentence.listToString(taggedSentence, false);
+                        baseNPMatcher.reset(sentence);
+
+
+                        while (baseNPMatcher.find()) {
+
+                            String baseNPString = baseNPMatcher.group(0);
+
+                            String POSTag = "";
+                            POSTagMatcher.reset(baseNPString); //So Matcher does not have to be reinitialized every time
+
+                            while (POSTagMatcher.find()) {
+                                POSTag = POSTagMatcher.group(1);  //POS Tag of last token
+                            }
+
+                            String cleanBaseNPString = baseNPString.replaceAll("(?<!(?:\\/|\\\\))\\/([A-Z,$,#,€]{1,4})", "").trim();
+
+                            if (!cleanBaseNPString.equals("")) {
+
+
+                                BaseNounPhrase baseNP = createBaseNounPhrase(cleanBaseNPString, baseNPString, taggedSentence, POSTag, initialStartOffset);
+                                //System.out.println("Tagged Sentence: " + taggedSentence + " with initialOffset: " + initialStartOffset + " produced: " + baseNP);
+                                initialStartOffset = baseNP.getStartOffset();
+                                dictionaryWithTaggedSentenceForBaseNP.put(baseNP, taggedSentence);
+                                synchronized (extractedNounPhrases) {
+                                    Collections.synchronizedCollection(extractedNounPhrases).add(baseNP);
+                                }
+                            }
+                        }
+
                     }
+                };
+                //thread.start();
+                es.execute(thread);
 
-
-                    //String cleanBaseNPString = baseNPString.replace("\\/", "\\");  //CoNLL Data entails \/ to symbolize /. By exchanging it for \, no conflicts can arise when extracting the POS Tags
-                    String cleanBaseNPString = baseNPString.replaceAll("(?<!(?:\\/|\\\\))\\/([A-Z,$,#,€]{1,4})", "").trim();
-                    //cleanBaseNPString = cleanBaseNPString.replace("\\", "//");
-
-                    if (!cleanBaseNPString.equals("")) {
-
-                        BaseNounPhrase baseNP = createBaseNounPhrase(cleanBaseNPString, baseNPString, taggedSentence, POSTag);
-
-                        dictionaryWithTaggedSentenceForBaseNP.put(baseNP, taggedSentence);
-                        extractedNounPhrases.add(baseNP);
-                    }
-
-
-                }
             }
+            es.shutdown();
+            boolean finshed = es.awaitTermination(1, TimeUnit.MINUTES);
 
             return extractedNounPhrases;
 
@@ -153,11 +177,12 @@ public class POSBasedBaseNounPhraseExtractor {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
 
         return null;
     }
-
 
 
     /**
@@ -174,7 +199,7 @@ public class POSBasedBaseNounPhraseExtractor {
                 String delimiter = rule.getKey(); //The String to seperate the phrase on
                 String operation = rule.getOperation();
 
-                lastStartOffset = -1; //So every pass can start from the beginning again
+                int initialStartOffset = -1; //So every pass can start from the beginning again
 
                 for (int i = 0; i < baseNounPhrases.size(); i++) {
 
@@ -233,8 +258,9 @@ public class POSBasedBaseNounPhraseExtractor {
 
                                         String cleanSubstring = subString.replaceAll("(?<!/)/[A-Z,$,#,€]{1,4}", "").trim();
 
-                                        BaseNounPhrase newBaseNP = createBaseNounPhrase(cleanSubstring, subString, taggedSentence, "");
+                                        BaseNounPhrase newBaseNP = createBaseNounPhrase(cleanSubstring, subString, taggedSentence, "", initialStartOffset);
                                         baseNounPhrases.add(i + j, newBaseNP);
+                                        initialStartOffset = baseNP.getStartOffset();
 
                                     }
 
@@ -248,7 +274,7 @@ public class POSBasedBaseNounPhraseExtractor {
                     }
                 }
             }
-        } catch(IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
         return baseNounPhrases;
@@ -258,6 +284,7 @@ public class POSBasedBaseNounPhraseExtractor {
      * Extracts all base noun phrases from a given text.
      * The text can contain multiple sentences.
      * Results are saved internally and are available for output or saving
+     *
      * @param text The input text
      */
     public void extractBaseNounPhrasesFromText(String text) {
@@ -276,8 +303,12 @@ public class POSBasedBaseNounPhraseExtractor {
         extractedBaseNounPhrases = applyPositiveRules(taggedSentences);
         System.out.println("Finished application of positive rules");
 
+
+        System.out.println("Sorting the extracted phrases");
+        sortExtractedPhrases();
+
+
         System.out.println("Starting application of rejection rules");
-        lastStartOffset = -1;  //Reset so second pass of finding position in the createBaseNP can work
         extractedBaseNounPhrases = applyRejectionRules(extractedBaseNounPhrases);
         System.out.println("Finished application of rejection rules");
 
@@ -288,6 +319,7 @@ public class POSBasedBaseNounPhraseExtractor {
      * Results are saved internally and are available for output or saving
      * The tokens have to be in the first column
      * Columns have to be either seperated by a whitespace or a tab
+     *
      * @param path absolute path to the CoNLL File
      * @throws IOException
      */
@@ -338,20 +370,47 @@ public class POSBasedBaseNounPhraseExtractor {
         taggedSentences = tagWithPOSTags(sentences);
         System.out.println("Finished tagging the text");
 
+
         System.out.println("Starting application of positive rules");
-        //sentences = null;
         extractedBaseNounPhrases = applyPositiveRules(taggedSentences);
         System.out.println("Finished application of positive rules");
 
+
+        System.out.println("Sorting extracted phrases");
+        sortExtractedPhrases();
+
+
         System.out.println("Starting application of rejection rules");
-        lastStartOffset = -1;  //Reset so second pass of finding position in the createBaseNP can work
         extractedBaseNounPhrases = applyRejectionRules(extractedBaseNounPhrases);
         System.out.println("Finished application of rejection rules");
 
+
+    }
+
+    private void sortExtractedPhrases() {
+        Collections.sort(extractedBaseNounPhrases, new Comparator<BaseNounPhrase>() {
+            @Override
+            public int compare(BaseNounPhrase bnp1, BaseNounPhrase bnp2) {
+                if (bnp1 == null) {
+                    return -1;
+                }
+                if (bnp2 == null) {
+                    return 1;
+                }
+                if (bnp1.getStartOffset() > bnp2.getStartOffset()) {
+                    return 1;
+                } else if (bnp1.getStartOffset() == bnp2.getStartOffset()) {
+                    return 0;
+                } else {
+                    return -1;
+                }
+            }
+        });
     }
 
     /**
      * Returns the previously extracted base noun phrases as a List of BaseNounPhrase Objects
+     *
      * @return ArrayList of BaseNounPhrase Objects
      */
     public ArrayList<BaseNounPhrase> getBaseNounPhrases() {
@@ -363,6 +422,7 @@ public class POSBasedBaseNounPhraseExtractor {
      * 1. Column are the tokens
      * 2. Column are the created POS Tags
      * 3. Column are the chunk tags in the IOB2 format, only with baseNP information
+     *
      * @param pathToWrite absolutePath
      * @throws FileNotFoundException
      * @throws UnsupportedEncodingException
@@ -376,7 +436,8 @@ public class POSBasedBaseNounPhraseExtractor {
 
         int sizeOfExtractedNPsArray = extractedBaseNounPhrases.size();
 
-        sentenceLoop: for (int indexOfSentences = 0; indexOfSentences < taggedSentences.size(); indexOfSentences++) {
+        sentenceLoop:
+        for (int indexOfSentences = 0; indexOfSentences < taggedSentences.size(); indexOfSentences++) {
 
             List<TaggedWord> sentence = taggedSentences.get(indexOfSentences);
 
@@ -426,13 +487,14 @@ public class POSBasedBaseNounPhraseExtractor {
 
     /**
      * Creates BaseNounPhrase Object by finding the start and end offset and the head
-     * @param baseNP the string of the extracted baseNP
+     *
+     * @param baseNP                  the string of the extracted baseNP
      * @param phraseStringWithPOSTags the string of the extracted baseNP with each POS appended to each token using /
-     * @param taggedSentence the sentence the phrase was extracted from
-     * @param POSTag the POS Tag of the last token
+     * @param taggedSentence          the sentence the phrase was extracted from
+     * @param POSTag                  the POS Tag of the last token
      * @return BaseNounPhrase Object with its offsets
      */
-    private BaseNounPhrase createBaseNounPhrase(String baseNP, String phraseStringWithPOSTags, List<TaggedWord> taggedSentence, String POSTag) {
+    public BaseNounPhrase createBaseNounPhrase(String baseNP, String phraseStringWithPOSTags, List<TaggedWord> taggedSentence, String POSTag, int initialStartOffset) {
 
         int startOffset = -1;
         int endOffset = -1;
@@ -446,11 +508,16 @@ public class POSBasedBaseNounPhraseExtractor {
 
             String cleanCurrentWord = currentWord.word()/*.replace("\\/", "//")*/;
 
-            if (cleanCurrentWord.equals(firstWord)) { //Checks if word is the same as the first word of the baseNP
-                if ((currentWord.beginPosition() > lastStartOffset) && startOffset < 0) { //Only sets startOffset if the word is after the beginning of the last baseNP and the startOffset has not been set yet
+            if (cleanCurrentWord.equals(firstWord) || cleanCurrentWord.equals(firstWord + ".") || cleanCurrentWord.equals(firstWord + "s") || cleanCurrentWord.contains("-" + firstWord) || (firstWord.contains("\\/") && cleanCurrentWord.contains(firstWord)) || cleanCurrentWord.equals("'" + firstWord)) { //Checks if word is the same as the first word of the baseNP
+                int extra = 0;
+                if (cleanCurrentWord.equals(firstWord + ".")) {
+                    extra = 1;
+                } else if (cleanCurrentWord.equals("'" + firstWord)) {
+                    extra = 1;
+                }
+                if ((currentWord.beginPosition() > initialStartOffset) && startOffset < 0) { //Only sets startOffset if the word is after the beginning of the last baseNP and the startOffset has not been set yet
                     startOffset = currentWord.beginPosition();
-                    endOffset = startOffset + baseNPLength - 1;
-                    lastStartOffset = startOffset;
+                    endOffset = startOffset + baseNPLength + extra - 1;
                     break;
                 }
             }
@@ -465,6 +532,7 @@ public class POSBasedBaseNounPhraseExtractor {
     /**
      * Extracts the RegEx String from the rules files
      * Substitues all placeholders accordingly
+     *
      * @param rulesFilePath
      * @return Complete RegEx String
      * @throws IOException
@@ -553,6 +621,7 @@ public class POSBasedBaseNounPhraseExtractor {
      * Extracts the List of Rejection Rules from the rejection rules files
      * Substitues all placeholders accordingly
      * Organizes Rules by their key/delimiter
+     *
      * @param rulesFilePath
      * @return List of RejectionRule Objects
      * @throws IOException
@@ -570,12 +639,11 @@ public class POSBasedBaseNounPhraseExtractor {
 
                 if (firstCharacter.equals("∞")) {
                     String key = currentLine.substring(1, currentLine.lastIndexOf("∞"));
-                    String operation = currentLine.substring(currentLine.indexOf(";")+1, currentLine.lastIndexOf(";"));
+                    String operation = currentLine.substring(currentLine.indexOf(";") + 1, currentLine.lastIndexOf(";"));
 
                     rule = new RejectionRule(key, operation);
                     allRules.add(rule);
-                }
-                else if (rule != null) {
+                } else if (rule != null) {
                     rule.addRule(currentLine);
                 }
 
@@ -583,4 +651,10 @@ public class POSBasedBaseNounPhraseExtractor {
         }
         return allRules;
     }
+
+    public List<List<TaggedWord>> getTaggedSentences() {
+        return taggedSentences;
+    }
 }
+
+
