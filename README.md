@@ -1,7 +1,7 @@
 ## Synopsis
 
 The RBBNPE (Rule based base noun phrase extraction) system extracts base noun phrases from a given text using hand-crafted syntactic rules.
-It is written in JAVA and can be easily included in Natural Language Processing (NLP) projects. Evaluation on section 20 of the WSJ data set, taken from the CoNLL-2000 shared task, shows an F1-score of 89.1%
+It is written in JAVA and can be easily included in Natural Language Processing (NLP) projects. Evaluation on section 20 of the WSJ data set, taken from the CoNLL-2000 shared task, shows an F1-score of 89.5%
 
 ## Code Example
 
