@@ -113,7 +113,7 @@ public class POSBasedBaseNounPhraseExtractor {
             String rulesRegEx = getRegExString(rulesFilePath);
 
 
-            ExecutorService es = Executors.newCachedThreadPool();
+            ExecutorService es = Executors.newFixedThreadPool(8); //newCachedThreadPool
             for (List<TaggedWord> taggedSentence : taggedSentences) {
 
 
@@ -154,7 +154,7 @@ public class POSBasedBaseNounPhraseExtractor {
 
                                 BaseNounPhrase baseNP = createBaseNounPhrase(cleanBaseNPString, baseNPString, taggedSentence, POSTag, initialStartOffset);
                                 //System.out.println("Tagged Sentence: " + taggedSentence + " with initialOffset: " + initialStartOffset + " produced: " + baseNP);
-                                initialStartOffset = baseNP.getStartOffset();
+                                initialStartOffset = baseNP.getEndOffset();
                                 dictionaryWithTaggedSentenceForBaseNP.put(baseNP, taggedSentence);
                                 synchronized (extractedNounPhrases) {
                                     Collections.synchronizedCollection(extractedNounPhrases).add(baseNP);
@@ -199,17 +199,21 @@ public class POSBasedBaseNounPhraseExtractor {
                 String delimiter = rule.getKey(); //The String to seperate the phrase on
                 String operation = rule.getOperation();
 
-                int initialStartOffset = -1; //So every pass can start from the beginning again
+                 //So every pass can start from the beginning again
 
                 for (int i = 0; i < baseNounPhrases.size(); i++) {
 
                     BaseNounPhrase baseNP = baseNounPhrases.get(i);
                     String phrase = baseNP.getPhraseStringWithPOSTags();
 
+                    int initialStartOffset = baseNP.getStartOffset()-1;
+
                     List<TaggedWord> taggedSentence = dictionaryWithTaggedSentenceForBaseNP.get(baseNP);
 
                     if (taggedSentence != null) {
                         String taggedSentenceString = Sentence.listToString(taggedSentence, false);
+
+
 
                         if (phrase.contains(delimiter)) {
 
@@ -260,7 +264,7 @@ public class POSBasedBaseNounPhraseExtractor {
 
                                         BaseNounPhrase newBaseNP = createBaseNounPhrase(cleanSubstring, subString, taggedSentence, "", initialStartOffset);
                                         baseNounPhrases.add(i + j, newBaseNP);
-                                        initialStartOffset = baseNP.getStartOffset();
+                                        initialStartOffset = newBaseNP.getEndOffset();
 
                                     }
 
@@ -380,9 +384,11 @@ public class POSBasedBaseNounPhraseExtractor {
         sortExtractedPhrases();
 
 
+
         System.out.println("Starting application of rejection rules");
         extractedBaseNounPhrases = applyRejectionRules(extractedBaseNounPhrases);
         System.out.println("Finished application of rejection rules");
+
 
 
     }
@@ -451,15 +457,20 @@ public class POSBasedBaseNounPhraseExtractor {
                 String token = word.word();
                 String tag = word.tag();
                 String assignedChunkTag = "";
+                int startOffset = word.beginPosition();
 
 
                 if (indexNPs < sizeOfExtractedNPsArray) {
                     BaseNounPhrase currentNP = extractedBaseNounPhrases.get(indexNPs);
                     String[] words = currentNP.getPhraseString().split(" ");
                     String currentWord = words[indexInNP];
+                    int startOfCurrentWord = currentNP.getStartOffset();
 
+                    for (int j = 1; j <= indexInNP; j++) {
+                        startOfCurrentWord = startOfCurrentWord + words[j-1].length() + 1;
+                    }
 
-                    if (token.equals(currentWord)) {
+                    if (startOffset == startOfCurrentWord) {
                         if (indexInNP == 0) {
                             assignedChunkTag = "B";
                         } else {
@@ -474,6 +485,11 @@ public class POSBasedBaseNounPhraseExtractor {
                     } else {
                         assignedChunkTag = "O";
                     }
+
+                    /*if (startOffset > currentNP.getEndOffset()) {
+                        indexNPs++;
+                    }
+                    */
                     String line = token + "\t" + tag + "\t" + assignedChunkTag;
                     writer.println(line);
                 } else break sentenceLoop;
@@ -504,11 +520,14 @@ public class POSBasedBaseNounPhraseExtractor {
 
         int baseNPLength = baseNP.length();
 
-        for (TaggedWord currentWord : taggedSentence) {
+
+        for (int indexOTaggedWords = 0; indexOTaggedWords < taggedSentence.size() ; indexOTaggedWords++) {
+
+            TaggedWord currentWord = taggedSentence.get(indexOTaggedWords);
 
             String cleanCurrentWord = currentWord.word()/*.replace("\\/", "//")*/;
 
-            if (cleanCurrentWord.equals(firstWord) || cleanCurrentWord.equals(firstWord + ".") || cleanCurrentWord.equals(firstWord + "s") || cleanCurrentWord.contains("-" + firstWord) || (firstWord.contains("\\/") && cleanCurrentWord.contains(firstWord)) || cleanCurrentWord.equals("'" + firstWord)) { //Checks if word is the same as the first word of the baseNP
+            if (cleanCurrentWord.equals(firstWord)) { //Checks if word is the same as the first word of the baseNP
                 int extra = 0;
                 if (cleanCurrentWord.equals(firstWord + ".")) {
                     extra = 1;
@@ -516,9 +535,19 @@ public class POSBasedBaseNounPhraseExtractor {
                     extra = 1;
                 }
                 if ((currentWord.beginPosition() > initialStartOffset) && startOffset < 0) { //Only sets startOffset if the word is after the beginning of the last baseNP and the startOffset has not been set yet
-                    startOffset = currentWord.beginPosition();
-                    endOffset = startOffset + baseNPLength + extra - 1;
-                    break;
+                    boolean correctStart = true;
+                    for (int indexInBaseNP = 0; indexInBaseNP < wordsInBaseNP.length;indexInBaseNP++) {
+                        String partWord = wordsInBaseNP[indexInBaseNP];
+                        String compareWord = taggedSentence.get(indexOTaggedWords+indexInBaseNP).word();
+                        if (!partWord.equals(compareWord)) {
+                            correctStart = false;
+                        }
+                    }
+                    if (correctStart) {
+                        startOffset = currentWord.beginPosition();
+                        endOffset = startOffset + baseNPLength + extra - 1;
+                        break;
+                    }
                 }
             }
         }
