@@ -180,9 +180,8 @@ public class BaseNounPhrase {
 
     @Override
     public String toString() {
-        return "BaseNounPhrase{" +
-                "phraseString='" + phraseString +
-                ", startOffset=" + startOffset +
+        return phraseString +
+                " {startOffset=" + startOffset +
                 ", endOffset=" + endOffset +
                 '}';
     }
